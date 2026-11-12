@@ -1,0 +1,29 @@
+# Secrets (keep the example file)
+.env
+!.env.example
+
+# Python
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# SQLite databases
+*.db
+*.db-wal
+*.db-shm
+
+# Uploaded images (keep folder placeholders)
+backend/static/uploads/*/*
+!backend/static/uploads/*/.gitkeep
+
+# Node
+node_modules/
+dist/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
