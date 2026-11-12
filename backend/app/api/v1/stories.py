@@ -4,32 +4,36 @@ from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import DB, CurrentUser
+from app.api.deps import DB, CurrentUser, OptionalUser
 from app.core.config import settings
 from app.models import Story
 from app.models._base import utcnow
 from app.schemas.social import StoryGroup, StoryOut
 from app.schemas.user import UserPublic
 from app.services.files import delete_image, save_image
-from app.services.social import following_ids_subquery
+from app.services.social import following_ids_subquery, public_user_ids
 
 router = APIRouter(prefix="/stories", tags=["stories"])
 
 
 @router.get("/feed", response_model=list[StoryGroup])
-def story_feed(db: DB, me: CurrentUser):
-    """Active (unexpired) stories of me + accounts I follow, grouped per user. Mine first."""
+def story_feed(db: DB, me: OptionalUser):
+    """Active stories of me + accounts I follow, grouped per user (mine first). Guest: public accounts."""
+    if me is None:
+        who = Story.user_id.in_(public_user_ids())
+    else:
+        who = (Story.user_id == me.id) | Story.user_id.in_(following_ids_subquery(me.id))
     stories = db.scalars(
         select(Story).options(selectinload(Story.author))
-        .where(Story.expires_at > utcnow(),
-               (Story.user_id == me.id) | Story.user_id.in_(following_ids_subquery(me.id)))
+        .where(Story.expires_at > utcnow(), who)
         .order_by(Story.created_at)
     ).all()
     groups: dict[int, StoryGroup] = {}
     for s in stories:
         g = groups.setdefault(s.user_id, StoryGroup(user=UserPublic.model_validate(s.author), stories=[]))
         g.stories.append(StoryOut(id=s.id, image_url=s.image_url, created_at=s.created_at, expires_at=s.expires_at))
-    ordered = sorted(groups.values(), key=lambda g: (g.user.id != me.id, -g.stories[-1].created_at.timestamp()))
+    my_id = me.id if me else None
+    ordered = sorted(groups.values(), key=lambda g: (g.user.id != my_id, -g.stories[-1].created_at.timestamp()))
     return ordered
 
 

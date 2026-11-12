@@ -129,6 +129,43 @@ def test_private_account(client):
     assert client.get(f"{API}/users/erin/followers", headers=hv).json()[0]["username"] == "frank"
 
 
+def test_guest_can_browse_but_not_write(client):
+    hpub = register(client, "ivy")
+    hpriv = register(client, "jack", private=True)
+    pub = client.post(f"{API}/posts", headers=hpub, files=[("files", ("a.png", make_image(), "image/png"))],
+                      data={"caption": "guest #visible"}).json()
+    priv = client.post(f"{API}/posts", headers=hpriv, files=[("files", ("b.png", make_image(), "image/png"))]).json()
+    client.post(f"{API}/posts/{pub['id']}/comments", headers=hpriv, json={"content": "hi"})
+
+    # reads without a token
+    feed_ids = [p["id"] for p in client.get(f"{API}/posts/feed", params={"limit": 50}).json()]
+    assert pub["id"] in feed_ids and priv["id"] not in feed_ids
+    got = client.get(f"{API}/posts/{pub['id']}").json()
+    assert got["is_liked"] is False and got["is_bookmarked"] is False
+    assert client.get(f"{API}/posts/{priv['id']}").status_code == 404
+    assert len(client.get(f"{API}/posts/{pub['id']}/comments").json()) == 1
+    assert any(p["id"] == pub["id"] for p in client.get(f"{API}/posts/explore", params={"limit": 50}).json())
+    assert [p["id"] for p in client.get(f"{API}/posts/tags/visible").json()] == [pub["id"]]
+    prof = client.get(f"{API}/users/ivy").json()
+    assert prof["is_me"] is False and prof["follow_status"] == "none" and prof["can_view_posts"] is True
+    assert client.get(f"{API}/users/jack").json()["can_view_posts"] is False
+    assert client.get(f"{API}/users/jack/posts").status_code == 403
+    assert client.get(f"{API}/users/suggestions").status_code == 200
+    assert client.get(f"{API}/search", params={"q": "ivy"}).status_code == 200
+    assert client.get(f"{API}/stories/feed").status_code == 200
+    # an invalid token on a public endpoint is treated as a guest
+    assert client.get(f"{API}/posts/feed", headers={"Authorization": "Bearer junk"}).status_code == 200
+
+    # writes require login
+    assert client.post(f"{API}/posts/{pub['id']}/like").status_code == 401
+    assert client.post(f"{API}/posts/{pub['id']}/bookmark").status_code == 401
+    assert client.post(f"{API}/posts/{pub['id']}/comments", json={"content": "x"}).status_code == 401
+    assert client.post(f"{API}/users/ivy/follow").status_code == 401
+    assert client.post(f"{API}/posts", files=[("files", ("c.png", make_image(), "image/png"))]).status_code == 401
+    assert client.get(f"{API}/notifications").status_code == 401
+    assert client.get(f"{API}/users/me/saved").status_code == 401
+
+
 def test_stories(client):
     h1 = register(client, "gina")
     h2 = register(client, "hank")

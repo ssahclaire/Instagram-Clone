@@ -2,7 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import Spinner from '../common/Spinner'
 
-function FullScreenLoader() {
+export function FullScreenLoader() {
   return (
     <div className="flex min-h-screen items-center justify-center">
       <Spinner size={36} />
@@ -15,7 +15,7 @@ export default function ProtectedRoute() {
   const { user, loading } = useAuth()
   const location = useLocation()
   if (loading) return <FullScreenLoader />
-  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname, needLogin: true }} />
   return <Outlet />
 }
 

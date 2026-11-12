@@ -19,15 +19,18 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
       </Route>
 
-      <Route element={<ProtectedRoute />}>
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/explore" element={<ExplorePage />} />
-          <Route path="/explore/tags/:tag" element={<TagPage />} />
+      <Route element={<AppLayout />}>
+        {/* 누구나 볼 수 있는 페이지 (랜딩 = 피드) */}
+        <Route path="/" element={<HomePage />} />
+        <Route path="/explore" element={<ExplorePage />} />
+        <Route path="/explore/tags/:tag" element={<TagPage />} />
+        <Route path="/p/:postId" element={<PostPage />} />
+        <Route path="/:username" element={<ProfilePage key="posts" tab="posts" />} />
+
+        {/* 로그인이 필요한 페이지 */}
+        <Route element={<ProtectedRoute />}>
           <Route path="/accounts/edit" element={<EditProfilePage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/p/:postId" element={<PostPage />} />
-          <Route path="/:username" element={<ProfilePage key="posts" tab="posts" />} />
           <Route path="/:username/saved" element={<ProfilePage key="saved" tab="saved" />} />
         </Route>
       </Route>

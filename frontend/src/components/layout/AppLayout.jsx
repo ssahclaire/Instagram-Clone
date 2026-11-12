@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { notificationApi } from '../../api/postApi'
+import { useAuth } from '../../context/AuthContext'
 import { useUI } from '../../context/UIContext'
+import { FullScreenLoader } from './ProtectedRoute'
 import SearchDrawer, { Drawer } from '../common/SearchDrawer'
 import NotificationList from '../common/NotificationList'
 import CreatePostModal from '../post/CreatePostModal'
@@ -14,6 +16,7 @@ export default function AppLayout() {
   const [panel, setPanel] = useState(null) // 'search' | 'notifications' | null
   const [unread, setUnread] = useState(0)
   const { openPostId, closePost, createOpen, closeCreate } = useUI()
+  const { user, loading } = useAuth()
   const { pathname } = useLocation()
 
   const refreshUnread = useCallback(() => {
@@ -21,10 +24,14 @@ export default function AppLayout() {
   }, [])
 
   useEffect(() => {
+    if (!user) {
+      setUnread(0)
+      return
+    }
     refreshUnread()
     const t = setInterval(refreshUnread, POLL_MS)
     return () => clearInterval(t)
-  }, [refreshUnread])
+  }, [user, refreshUnread])
 
   // close drawers / modals on navigation
   useEffect(() => {
@@ -34,13 +41,16 @@ export default function AppLayout() {
 
   const closePanel = useCallback(() => setPanel(null), [])
 
+  // 저장된 토큰으로 세션 복원 중에는 게스트 화면이 잠깐 보이지 않도록 대기
+  if (loading) return <FullScreenLoader />
+
   return (
     <div className="min-h-screen">
       <Sidebar panel={panel} setPanel={setPanel} unread={unread} />
       <MobileNav unread={unread} />
 
       {panel === 'search' && <SearchDrawer onClose={closePanel} />}
-      {panel === 'notifications' && (
+      {panel === 'notifications' && user && (
         <Drawer title="알림" onClose={closePanel}>
           <div className="h-full overflow-y-auto">
             <NotificationList onNavigate={closePanel} onRead={() => setUnread(0)} />
@@ -52,7 +62,7 @@ export default function AppLayout() {
         <Outlet context={{ refreshUnread, setUnread }} />
       </main>
 
-      {createOpen && <CreatePostModal onClose={closeCreate} />}
+      {createOpen && user && <CreatePostModal onClose={closeCreate} />}
       {openPostId && <PostDetailModal postId={openPostId} onClose={closePost} />}
     </div>
   )

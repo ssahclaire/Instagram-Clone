@@ -118,7 +118,7 @@ export default function StoryViewer({ groups, startIndex, onClose, onDeleted }) 
               <button type="button" onClick={() => setPaused((p) => !p)} aria-label={paused ? '재생' : '일시정지'}>
                 {paused ? <Play size={20} className="fill-white" /> : <Pause size={20} className="fill-white" />}
               </button>
-              {group.user.id === user.id && (
+              {user && group.user.id === user.id && (
                 <button type="button" onClick={remove} aria-label="스토리 삭제">
                   <Trash2 size={20} />
                 </button>

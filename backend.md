@@ -43,7 +43,9 @@ backend/
 
 ## 3. 공통 규약
 - **Base URL**: `/api/v1`
-- **인증 헤더**: `Authorization: Bearer <access_token>` — `/auth/register`, `/auth/login`, `/auth/token` 외 모든 엔드포인트에 필요
+- **인증 헤더**: `Authorization: Bearer <access_token>`
+  - **게스트 허용(선택 인증, `OptionalUser`)**: 읽기 전용 엔드포인트 — `GET /posts/feed`(게스트는 공개 계정 전체 최신순), `/posts/explore`, `/posts/tags/{name}`, `/posts/{id}`, `/posts/{id}/comments`, `/posts/{id}/likes`, `/users/{username}`, `/users/{username}/posts|followers|following`, `/users/search`, `/users/suggestions`, `/search`, `/stories/feed`. 토큰이 없거나 유효하지 않으면 게스트로 처리하며, 비공개 계정 콘텐츠는 보이지 않습니다(`is_liked`/`is_bookmarked`는 `false`).
+  - **로그인 필수(`CurrentUser`)**: 그 외 모든 쓰기 작업(게시물·댓글·좋아요·북마크·팔로우·스토리·프로필 수정)과 `/auth/me`, `/users/me/*`, `/notifications/*` → 토큰 없으면 `401`
 - **에러 형식**: `{"detail": "한국어 메시지"}` (검증 오류는 FastAPI 기본 `422` 배열 형식)
 - **주요 상태 코드**: `401` 토큰 없음/만료/로그인 실패 · `403` 권한 없음(타인 게시물 수정, 비공개 계정 목록) · `404` 없음 또는 볼 수 없는 게시물 · `409` 아이디/이메일 중복 · `413` 파일 크기 초과(10MB)
 - **페이지네이션**: `?skip=0&limit=N` (offset 방식)

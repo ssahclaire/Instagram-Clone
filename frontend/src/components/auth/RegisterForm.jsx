@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { CheckCircle2, XCircle } from 'lucide-react'
 import { errorMessage } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
@@ -22,6 +22,7 @@ function validate(f) {
 export default function RegisterForm() {
   const { register } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [form, setForm] = useState({ email: '', full_name: '', username: '', password: '' })
   const [show, setShow] = useState(false)
   const [serverError, setServerError] = useState('')
@@ -43,7 +44,7 @@ export default function RegisterForm() {
     setServerError('')
     try {
       await register({ ...form, email: form.email.trim(), full_name: form.full_name.trim() })
-      navigate('/', { replace: true })
+      navigate(location.state?.from || '/', { replace: true })
     } catch (err) {
       setServerError(errorMessage(err))
       setBusy(false)

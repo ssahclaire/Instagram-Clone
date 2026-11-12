@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query
 from sqlalchemy import func, or_, select
 
-from app.api.deps import DB, CurrentUser
+from app.api.deps import DB, OptionalUser
 from app.models import Hashtag, PostHashtag, User
 from app.schemas.post import HashtagOut
 from app.schemas.social import SearchResult
@@ -10,7 +10,7 @@ router = APIRouter(prefix="/search", tags=["search"])
 
 
 @router.get("", response_model=SearchResult)
-def search(db: DB, _: CurrentUser, q: str = Query(min_length=1, max_length=50)):
+def search(db: DB, _: OptionalUser, q: str = Query(min_length=1, max_length=50)):
     """'#tag' searches hashtags only; otherwise users + hashtags."""
     raw = q.strip().lower()
     tag_only = raw.startswith("#")

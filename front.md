@@ -91,19 +91,24 @@ frontend/
 
 | 경로 | 페이지 | 권한 | 설명 |
 | :--- | :--- | :---: | :--- |
+| `/` | `HomePage` | **공개 (랜딩)** | 게스트: 공개 계정 전체 최신 피드 + 로그인 안내 카드 / 로그인: 팔로잉 피드 + 추천 |
+| `/explore` | `ExplorePage` | 공개 | 탐색 그리드 |
+| `/explore/tags/:tag` | `TagPage` | 공개 | 해시태그 게시물 |
+| `/p/:postId` | `PostPage` | 공개 | 게시물 단독 페이지 |
+| `/:username` | `ProfilePage` | 공개 | 게시물 탭 (비공개 계정은 자물쇠 화면) |
 | `/login` | `LoginPage` | 비인증 전용 | 로그인 상태면 `/`로 이동 |
 | `/register` | `RegisterPage` | 비인증 전용 | |
-| `/` | `HomePage` | 인증 | 스토리 바, 무한 스크롤 피드, 우측 추천(≥1280px) |
-| `/explore` | `ExplorePage` | 인증 | 탐색 그리드 |
-| `/explore/tags/:tag` | `TagPage` | 인증 | 해시태그 게시물 |
 | `/accounts/edit` | `EditProfilePage` | 인증 | |
 | `/notifications` | `NotificationsPage` | 인증 | 모바일 알림 화면 |
-| `/p/:postId` | `PostPage` | 인증 | 게시물 단독 페이지 |
-| `/:username` | `ProfilePage` | 인증 | 게시물 탭 |
-| `/:username/saved` | `ProfilePage` | 인증 | 저장됨 탭 (본인만, 타인은 게시물 탭으로 표시) |
+| `/:username/saved` | `ProfilePage` | 인증 | 저장됨 탭 (본인만) |
 | `*` | → `/` | | |
 
-인증 페이지 접근 시 비로그인이면 `/login`으로 이동하며, 로그인 후 원래 경로로 복귀합니다(`location.state.from`).
+### 3.1 게스트(비로그인) 정책
+- **열람은 자유**: 피드, 게시물 상세·댓글, 프로필, 탐색, 해시태그, 검색, 스토리 보기.
+- **활동은 로그인 필요**: 좋아요(버튼·더블클릭), 저장, 댓글/답글, 팔로우, 게시물 만들기, 스토리 추가. 시도하면 `useRequireAuth()` 훅이 `/login`으로 보내고(`state.from` = 현재 경로, `state.needLogin` = 안내 문구 표시), 로그인·가입 후 **원래 페이지로 복귀**합니다.
+- 게스트 UI: 사이드바에 `알림`·`프로필`·`더 보기` 대신 `로그인`/`가입하기`, 피드 카드의 댓글 입력창 대신 "로그인하고 댓글 달기...", 상세 모달 하단에 로그인 안내, 모바일 헤더에 로그인/가입하기 버튼.
+- 로그인 페이지에 "로그인 없이 둘러보기" 링크. 로그아웃 시 피드(`/`)로 이동.
+- 인증 필수 페이지에 비로그인으로 접근하면 `/login`으로 이동 후 로그인하면 원래 경로로 복귀합니다.
 
 ---
 

@@ -36,7 +36,7 @@ export default function ProfileHeader({ profile, setProfile }) {
       </Link>
       <button
         type="button"
-        onClick={() => { logout(); navigate('/login') }}
+        onClick={() => { logout(); navigate('/') }}
         className="btn-secondary flex-1 md:hidden"
       >
         로그아웃

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, or_, select
 
-from app.api.deps import DB, CurrentUser
+from app.api.deps import DB, CurrentUser, OptionalUser
 from app.core.security import hash_password, verify_password
 from app.models import Bookmark, Follow, Notification, Post, User
 from app.schemas.post import PostOut
@@ -25,7 +25,7 @@ def _follower_count(db: DB, user_id: int) -> int:
 # ----- static paths first (before /{username}) -----
 
 @router.get("/search", response_model=list[UserPublic])
-def search_users(db: DB, _: CurrentUser, q: str = Query(min_length=1, max_length=50), limit: int = 20):
+def search_users(db: DB, _: OptionalUser, q: str = Query(min_length=1, max_length=50), limit: int = 20):
     term = f"%{q.strip().lower().lstrip('@')}%"
     return db.scalars(
         select(User).where(User.is_active.is_(True), or_(User.username.like(term), func.lower(User.full_name).like(term)))
@@ -34,18 +34,18 @@ def search_users(db: DB, _: CurrentUser, q: str = Query(min_length=1, max_length
 
 
 @router.get("/suggestions", response_model=list[UserListItem])
-def suggestions(db: DB, me: CurrentUser, limit: int = 5):
-    """People not yet followed, ranked by follower count."""
+def suggestions(db: DB, me: OptionalUser, limit: int = 5):
+    """People not yet followed, ranked by follower count. Guest: popular accounts."""
     followers = (
         select(Follow.following_id, func.count().label("n"))
         .where(Follow.status == "accepted").group_by(Follow.following_id).subquery()
     )
-    already = select(Follow.following_id).where(Follow.follower_id == me.id)
+    q = select(User).outerjoin(followers, followers.c.following_id == User.id).where(User.is_active.is_(True))
+    if me is not None:
+        already = select(Follow.following_id).where(Follow.follower_id == me.id)
+        q = q.where(User.id != me.id, User.id.not_in(already))
     users = db.scalars(
-        select(User).outerjoin(followers, followers.c.following_id == User.id)
-        .where(User.id != me.id, User.is_active.is_(True), User.id.not_in(already))
-        .order_by(func.coalesce(followers.c.n, 0).desc(), User.created_at.desc())
-        .limit(min(limit, 30))
+        q.order_by(func.coalesce(followers.c.n, 0).desc(), User.created_at.desc()).limit(min(limit, 30))
     ).all()
     return user_list_items(db, me, list(users))
 
@@ -158,7 +158,7 @@ def remove_follower(username: str, db: DB, me: CurrentUser):
 # ----- /{username} routes -----
 
 @router.get("/{username}", response_model=Profile)
-def get_profile(username: str, db: DB, me: CurrentUser):
+def get_profile(username: str, db: DB, me: OptionalUser):
     user = get_user_or_404(db, username)
     post_count = db.scalar(select(func.count()).select_from(Post).where(Post.user_id == user.id)) or 0
     following_count = db.scalar(select(func.count()).select_from(Follow).where(
@@ -169,15 +169,15 @@ def get_profile(username: str, db: DB, me: CurrentUser):
         post_count=post_count,
         follower_count=_follower_count(db, user.id),
         following_count=following_count,
-        follow_status=follow_status(db, me.id, user.id) if user.id != me.id else "none",
-        follows_you=follow_status(db, user.id, me.id) == "accepted",
-        is_me=user.id == me.id,
+        follow_status=follow_status(db, me.id, user.id) if me and user.id != me.id else "none",
+        follows_you=bool(me) and follow_status(db, user.id, me.id) == "accepted",
+        is_me=bool(me) and user.id == me.id,
         can_view_posts=can_view_user_content(db, me, user),
     )
 
 
 @router.get("/{username}/posts", response_model=list[PostOut])
-def user_posts(username: str, db: DB, me: CurrentUser, skip: int = 0, limit: int = 30):
+def user_posts(username: str, db: DB, me: OptionalUser, skip: int = 0, limit: int = 30):
     user = get_user_or_404(db, username)
     if not can_view_user_content(db, me, user):
         raise HTTPException(403, "비공개 계정입니다.")
@@ -209,7 +209,7 @@ def toggle_follow(username: str, db: DB, me: CurrentUser):
     return FollowResult(follow_status=new_status, follower_count=_follower_count(db, target.id))
 
 
-def _follow_list(db: DB, me: User, user: User, followers: bool) -> list[UserListItem]:
+def _follow_list(db: DB, me: User | None, user: User, followers: bool) -> list[UserListItem]:
     if not can_view_user_content(db, me, user):
         raise HTTPException(403, "비공개 계정입니다.")
     if followers:
@@ -221,10 +221,10 @@ def _follow_list(db: DB, me: User, user: User, followers: bool) -> list[UserList
 
 
 @router.get("/{username}/followers", response_model=list[UserListItem])
-def followers(username: str, db: DB, me: CurrentUser):
+def followers(username: str, db: DB, me: OptionalUser):
     return _follow_list(db, me, get_user_or_404(db, username), followers=True)
 
 
 @router.get("/{username}/following", response_model=list[UserListItem])
-def following(username: str, db: DB, me: CurrentUser):
+def following(username: str, db: DB, me: OptionalUser):
     return _follow_list(db, me, get_user_or_404(db, username), followers=False)

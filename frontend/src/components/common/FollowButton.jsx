@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { userApi } from '../../api/userApi'
 import { errorMessage } from '../../api/client'
 import { useToast } from './Toast'
+import useRequireAuth from '../../utils/useRequireAuth'
 
 const LABEL = { none: '팔로우', pending: '요청됨', accepted: '팔로잉' }
 
@@ -9,9 +10,11 @@ const LABEL = { none: '팔로우', pending: '요청됨', accepted: '팔로잉' }
 export default function FollowButton({ username, status, onChange, variant = 'button', className = '' }) {
   const [busy, setBusy] = useState(false)
   const toast = useToast()
+  const ensureAuth = useRequireAuth()
 
   const click = async (e) => {
     e.stopPropagation()
+    if (!ensureAuth()) return
     setBusy(true)
     try {
       const r = await userApi.toggleFollow(username)

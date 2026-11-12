@@ -5,18 +5,22 @@ import { toggleBookmark, toggleLike } from '../../utils/postStore'
 import { useToast } from '../common/Toast'
 import { UserListModal } from '../profile/FollowListModal'
 import { postApi } from '../../api/postApi'
+import useRequireAuth from '../../utils/useRequireAuth'
 
 /** Like / comment / share / bookmark row + like count. */
 export default function PostActions({ post, onComment }) {
   const toast = useToast()
   const [bounce, setBounce] = useState(0)
   const [likersOpen, setLikersOpen] = useState(false)
+  const ensureAuth = useRequireAuth()
 
   const like = () => {
+    if (!ensureAuth()) return
     setBounce(Date.now())
     toggleLike(post).catch((e) => toast(errorMessage(e)))
   }
   const save = () =>
+    ensureAuth() &&
     toggleBookmark(post)
       .then((saved) => saved && toast('저장되었습니다.'))
       .catch((e) => toast(errorMessage(e)))

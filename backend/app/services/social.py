@@ -21,8 +21,12 @@ def follow_status(db: Session, follower_id: int, following_id: int) -> str:
     return f.status if f else "none"
 
 
-def can_view_user_content(db: Session, viewer: User, owner: User) -> bool:
-    if viewer.id == owner.id or not owner.is_private:
+def can_view_user_content(db: Session, viewer: User | None, owner: User) -> bool:
+    if not owner.is_private:
+        return True
+    if viewer is None:
+        return False
+    if viewer.id == owner.id:
         return True
     return follow_status(db, viewer.id, owner.id) == "accepted"
 
@@ -31,8 +35,14 @@ def following_ids_subquery(viewer_id: int):
     return select(Follow.following_id).where(Follow.follower_id == viewer_id, Follow.status == "accepted")
 
 
-def visible_posts_clause(viewer_id: int):
-    """SQL condition for posts the viewer may see (public, own, or followed private)."""
+def public_user_ids():
+    return select(User.id).where(User.is_private.is_(False))
+
+
+def visible_posts_clause(viewer_id: int | None):
+    """SQL condition for posts the viewer may see (public, own, or followed private). Guest → public only."""
+    if viewer_id is None:
+        return Post.user_id.in_(public_user_ids())
     return or_(
         Post.user_id == viewer_id,
         Post.user_id.in_(select(User.id).where(User.is_private.is_(False))),
@@ -47,27 +57,28 @@ def get_user_or_404(db: Session, username: str) -> User:
     return user
 
 
-def get_visible_post_or_404(db: Session, viewer: User, post_id: int) -> Post:
+def get_visible_post_or_404(db: Session, viewer: User | None, post_id: int) -> Post:
     post = db.get(Post, post_id)
     if not post or not can_view_user_content(db, viewer, post.author):
         raise HTTPException(404, "게시물을 찾을 수 없습니다.")
     return post
 
 
-def user_list_items(db: Session, viewer: User, users: list[User]) -> list[UserListItem]:
+def user_list_items(db: Session, viewer: User | None, users: list[User]) -> list[UserListItem]:
     if not users:
         return []
-    rows = db.execute(
-        select(Follow.following_id, Follow.status).where(
-            Follow.follower_id == viewer.id, Follow.following_id.in_([u.id for u in users])
-        )
-    ).all()
-    status = dict(rows)
+    status = {}
+    if viewer is not None:
+        status = dict(db.execute(
+            select(Follow.following_id, Follow.status).where(
+                Follow.follower_id == viewer.id, Follow.following_id.in_([u.id for u in users])
+            )
+        ).all())
     return [
         UserListItem(
             **UserPublic.model_validate(u).model_dump(),
             follow_status=status.get(u.id, "none"),
-            is_me=u.id == viewer.id,
+            is_me=viewer is not None and u.id == viewer.id,
         )
         for u in users
     ]
@@ -110,7 +121,7 @@ def unnotify(db: Session, *, recipient_id: int, actor_id: int, type: str, post_i
 
 # ---------- serialisation ----------
 
-def serialize_posts(db: Session, viewer: User, posts: list[Post]) -> list[PostOut]:
+def serialize_posts(db: Session, viewer: User | None, posts: list[Post]) -> list[PostOut]:
     if not posts:
         return []
     ids = [p.id for p in posts]
@@ -120,8 +131,11 @@ def serialize_posts(db: Session, viewer: User, posts: list[Post]) -> list[PostOu
     comment_counts = dict(db.execute(
         select(Comment.post_id, func.count()).where(Comment.post_id.in_(ids)).group_by(Comment.post_id)
     ).all())
-    liked = set(db.scalars(select(PostLike.post_id).where(PostLike.user_id == viewer.id, PostLike.post_id.in_(ids))))
-    saved = set(db.scalars(select(Bookmark.post_id).where(Bookmark.user_id == viewer.id, Bookmark.post_id.in_(ids))))
+    liked: set[int] = set()
+    saved: set[int] = set()
+    if viewer is not None:
+        liked = set(db.scalars(select(PostLike.post_id).where(PostLike.user_id == viewer.id, PostLike.post_id.in_(ids))))
+        saved = set(db.scalars(select(Bookmark.post_id).where(Bookmark.user_id == viewer.id, Bookmark.post_id.in_(ids))))
     return [
         PostOut(
             id=p.id,

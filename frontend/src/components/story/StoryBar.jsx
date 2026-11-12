@@ -20,9 +20,11 @@ export default function StoryBar() {
     load()
   }, [])
 
-  const mine = groups.find((g) => g.user.id === user.id)
-  const others = groups.filter((g) => g.user.id !== user.id)
+  const mine = user ? groups.find((g) => g.user.id === user.id) : null
+  const others = groups.filter((g) => g.user.id !== user?.id)
   const ordered = mine ? [mine, ...others] : others
+
+  if (!user && others.length === 0) return null
 
   const upload = async (file) => {
     if (!file) return
@@ -37,7 +39,7 @@ export default function StoryBar() {
 
   return (
     <div className="mb-2 flex gap-4 overflow-x-auto px-4 py-4 scrollbar-hide md:mb-6 md:px-0">
-      <div className="flex w-[66px] shrink-0 flex-col items-center gap-1">
+      {user && <div className="flex w-[66px] shrink-0 flex-col items-center gap-1">
         <div className="relative">
           <Avatar
             user={user}
@@ -56,7 +58,7 @@ export default function StoryBar() {
           </button>
         </div>
         <span className="w-full truncate text-center text-xs text-ig-secondary">내 스토리</span>
-      </div>
+      </div>}
 
       {others.map((g) => (
         <button

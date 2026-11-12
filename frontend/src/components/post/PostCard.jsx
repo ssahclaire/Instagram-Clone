@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { MoreHorizontal } from 'lucide-react'
 import { errorMessage } from '../../api/client'
+import { useAuth } from '../../context/AuthContext'
 import { useUI } from '../../context/UIContext'
+import useRequireAuth from '../../utils/useRequireAuth'
 import { addComment, toggleLike } from '../../utils/postStore'
 import { formatTime } from '../../utils/formatTime'
 import RichText from '../../utils/RichText'
@@ -22,11 +24,14 @@ export default function PostCard({ post }) {
   const [comment, setComment] = useState('')
   const [myComments, setMyComments] = useState([])
   const [posting, setPosting] = useState(false)
+  const { user } = useAuth()
+  const ensureAuth = useRequireAuth()
 
   const longCaption = post.caption.length > CAPTION_PREVIEW || post.caption.split('\n').length > 2
   const caption = expanded || !longCaption ? post.caption : post.caption.split('\n').slice(0, 2).join('\n').slice(0, CAPTION_PREVIEW)
 
   const dblLike = () => {
+    if (!ensureAuth()) return
     if (!post.is_liked) toggleLike(post).catch((e) => toast(errorMessage(e)))
   }
 
@@ -96,20 +101,26 @@ export default function PostCard({ post }) {
           </div>
         ))}
 
-        <form onSubmit={submit} className="mt-1.5 flex items-center">
-          <input
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder="댓글 달기..."
-            className="flex-1 py-1 text-sm outline-none placeholder:text-ig-secondary"
-            maxLength={2200}
-          />
-          {comment.trim() && (
-            <button type="submit" disabled={posting} className="link-blue text-sm disabled:opacity-50">
-              게시
-            </button>
-          )}
-        </form>
+        {user ? (
+          <form onSubmit={submit} className="mt-1.5 flex items-center">
+            <input
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="댓글 달기..."
+              className="flex-1 py-1 text-sm outline-none placeholder:text-ig-secondary"
+              maxLength={2200}
+            />
+            {comment.trim() && (
+              <button type="submit" disabled={posting} className="link-blue text-sm disabled:opacity-50">
+                게시
+              </button>
+            )}
+          </form>
+        ) : (
+          <button type="button" onClick={ensureAuth} className="mt-1.5 block py-1 text-left text-sm text-ig-secondary hover:text-neutral-900">
+            로그인하고 댓글 달기...
+          </button>
+        )}
       </div>
 
       {optionsOpen && <PostOptions post={post} onClose={() => setOptionsOpen(false)} />}

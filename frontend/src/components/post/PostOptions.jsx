@@ -15,7 +15,7 @@ export default function PostOptions({ post, onClose, onDeleted }) {
   const navigate = useNavigate()
   const toast = useToast()
   const [mode, setMode] = useState('menu') // menu | confirmDelete | edit
-  const isMine = post.author.id === user.id
+  const isMine = !!user && post.author.id === user.id
 
   const link = `${window.location.origin}/p/${post.id}`
   const copy = async () => {

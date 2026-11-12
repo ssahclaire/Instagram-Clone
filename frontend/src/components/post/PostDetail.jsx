@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import { addComment, emitPost, toggleLike, useSyncedPost } from '../../utils/postStore'
 import { formatTime } from '../../utils/formatTime'
 import RichText from '../../utils/RichText'
+import useRequireAuth from '../../utils/useRequireAuth'
 import Avatar from '../common/Avatar'
 import Spinner from '../common/Spinner'
 import { useToast } from '../common/Toast'
@@ -58,6 +59,7 @@ export default function PostDetail({ postId, onDeleted, layout = 'modal' }) {
   const [posting, setPosting] = useState(false)
   const [optionsOpen, setOptionsOpen] = useState(false)
   const inputRef = useRef()
+  const ensureAuth = useRequireAuth()
 
   useEffect(() => {
     let alive = true
@@ -92,8 +94,10 @@ export default function PostDetail({ postId, onDeleted, layout = 'modal' }) {
   if (error) return <div className="flex h-full min-h-[300px] items-center justify-center p-8 text-ig-secondary">{error}</div>
   if (!post || !comments) return <div className="flex h-full min-h-[300px] w-full items-center justify-center bg-white"><Spinner /></div>
 
-  const isOwner = post.author.id === user.id
+  const isOwner = !!user && post.author.id === user.id
+  const canDelete = (c) => isOwner || (!!user && c.author.id === user.id)
   const startReply = (c) => {
+    if (!ensureAuth()) return
     setReplyTo(c)
     setText(`@${c.author.username} `)
     inputRef.current?.focus()
@@ -153,7 +157,7 @@ export default function PostDetail({ postId, onDeleted, layout = 'modal' }) {
           images={post.images}
           fit="contain"
           className="aspect-square w-full md:aspect-auto md:h-full"
-          onDoubleClick={() => !post.is_liked && toggleLike(post).catch(() => {})}
+          onDoubleClick={() => ensureAuth() && !post.is_liked && toggleLike(post).catch(() => {})}
         />
       </div>
 
@@ -186,7 +190,7 @@ export default function PostDetail({ postId, onDeleted, layout = 'modal' }) {
             const open = openReplies[c.id]
             return (
               <div key={c.id}>
-                <CommentItem comment={c} onReply={startReply} onDelete={remove} canDelete={isOwner || c.author.id === user.id} />
+                <CommentItem comment={c} onReply={startReply} onDelete={remove} canDelete={canDelete(c)} />
                 {rs.length > 0 && (
                   <div className="ml-11">
                     <button
@@ -199,7 +203,7 @@ export default function PostDetail({ postId, onDeleted, layout = 'modal' }) {
                     </button>
                     {open &&
                       rs.map((r) => (
-                        <CommentItem key={r.id} comment={r} small onReply={startReply} onDelete={remove} canDelete={isOwner || r.author.id === user.id} />
+                        <CommentItem key={r.id} comment={r} small onReply={startReply} onDelete={remove} canDelete={canDelete(r)} />
                       ))}
                   </div>
                 )}
@@ -209,7 +213,7 @@ export default function PostDetail({ postId, onDeleted, layout = 'modal' }) {
         </div>
 
         <div className="border-t border-ig-border px-4 pb-2">
-          <PostActions post={post} onComment={() => inputRef.current?.focus()} />
+          <PostActions post={post} onComment={() => ensureAuth() && inputRef.current?.focus()} />
           <div className="mt-1 text-[10px] uppercase tracking-wide text-ig-secondary">{formatTime(post.created_at)}</div>
         </div>
 
@@ -219,6 +223,14 @@ export default function PostDetail({ postId, onDeleted, layout = 'modal' }) {
             <button type="button" onClick={() => { setReplyTo(null); setText('') }}>취소</button>
           </div>
         )}
+        {!user ? (
+          <div className="border-t border-ig-border px-4 py-3 text-sm">
+            <button type="button" onClick={ensureAuth} className="link-blue">
+              로그인
+            </button>
+            <span className="text-ig-secondary">하여 좋아요나 댓글을 남겨보세요.</span>
+          </div>
+        ) : (
         <form onSubmit={submit} className="flex items-center gap-2 border-t border-ig-border px-4 py-3">
           <Avatar user={user} size={28} />
           <input
@@ -233,6 +245,7 @@ export default function PostDetail({ postId, onDeleted, layout = 'modal' }) {
             게시
           </button>
         </form>
+        )}
       </div>
 
       {optionsOpen && <PostOptions post={post} onClose={() => setOptionsOpen(false)} onDeleted={onDeleted} />}

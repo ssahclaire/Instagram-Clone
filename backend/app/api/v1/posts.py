@@ -1,7 +1,7 @@
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import func, select
 
-from app.api.deps import DB, CurrentUser
+from app.api.deps import DB, CurrentUser, OptionalUser
 from app.core.config import settings
 from app.models import Bookmark, Comment, Hashtag, Post, PostHashtag, PostImage, PostLike, User
 from app.schemas.post import (
@@ -22,11 +22,14 @@ def _page(limit: int) -> int:
 
 
 @router.get("/feed", response_model=list[PostOut])
-def feed(db: DB, me: CurrentUser, skip: int = 0, limit: int = 10):
-    """My posts + posts of accounts I follow (accepted), newest first."""
+def feed(db: DB, me: OptionalUser, skip: int = 0, limit: int = 10):
+    """Logged in: my posts + accounts I follow (accepted). Guest: all public posts. Newest first."""
+    if me is None:
+        cond = visible_posts_clause(None)
+    else:
+        cond = (Post.user_id == me.id) | Post.user_id.in_(following_ids_subquery(me.id))
     posts = db.scalars(
-        post_query()
-        .where((Post.user_id == me.id) | Post.user_id.in_(following_ids_subquery(me.id)))
+        post_query().where(cond)
         .order_by(Post.created_at.desc(), Post.id.desc())
         .offset(skip).limit(_page(limit))
     ).all()
@@ -34,26 +37,27 @@ def feed(db: DB, me: CurrentUser, skip: int = 0, limit: int = 10):
 
 
 @router.get("/explore", response_model=list[PostOut])
-def explore(db: DB, me: CurrentUser, skip: int = 0, limit: int = 30):
+def explore(db: DB, me: OptionalUser, skip: int = 0, limit: int = 30):
     """Visible posts from other users, ranked by likes then recency."""
     likes = select(PostLike.post_id, func.count().label("n")).group_by(PostLike.post_id).subquery()
+    q = post_query().outerjoin(likes, likes.c.post_id == Post.id).where(visible_posts_clause(me.id if me else None))
+    if me is not None:
+        q = q.where(Post.user_id != me.id)
     posts = db.scalars(
-        post_query().outerjoin(likes, likes.c.post_id == Post.id)
-        .where(Post.user_id != me.id, visible_posts_clause(me.id))
-        .order_by(func.coalesce(likes.c.n, 0).desc(), Post.created_at.desc())
+        q.order_by(func.coalesce(likes.c.n, 0).desc(), Post.created_at.desc())
         .offset(skip).limit(_page(limit))
     ).all()
     return serialize_posts(db, me, list(posts))
 
 
 @router.get("/tags/{name}", response_model=list[PostOut])
-def posts_by_tag(name: str, db: DB, me: CurrentUser, skip: int = 0, limit: int = 30):
+def posts_by_tag(name: str, db: DB, me: OptionalUser, skip: int = 0, limit: int = 30):
     tag = db.scalar(select(Hashtag).where(Hashtag.name == name.lower().lstrip("#")))
     if not tag:
         return []
     posts = db.scalars(
         post_query().join(PostHashtag, PostHashtag.post_id == Post.id)
-        .where(PostHashtag.hashtag_id == tag.id, visible_posts_clause(me.id))
+        .where(PostHashtag.hashtag_id == tag.id, visible_posts_clause(me.id if me else None))
         .order_by(Post.created_at.desc()).offset(skip).limit(_page(limit))
     ).all()
     return serialize_posts(db, me, list(posts))
@@ -89,7 +93,7 @@ async def create_post(
 
 
 @router.get("/{post_id}", response_model=PostOut)
-def get_post(post_id: int, db: DB, me: CurrentUser):
+def get_post(post_id: int, db: DB, me: OptionalUser):
     return serialize_posts(db, me, [get_visible_post_or_404(db, me, post_id)])[0]
 
 
@@ -136,7 +140,7 @@ def toggle_like(post_id: int, db: DB, me: CurrentUser):
 
 
 @router.get("/{post_id}/likes", response_model=list[UserListItem])
-def post_likers(post_id: int, db: DB, me: CurrentUser):
+def post_likers(post_id: int, db: DB, me: OptionalUser):
     post = get_visible_post_or_404(db, me, post_id)
     users = db.scalars(
         select(User).join(PostLike, PostLike.user_id == User.id)
@@ -158,7 +162,7 @@ def toggle_bookmark(post_id: int, db: DB, me: CurrentUser):
 
 
 @router.get("/{post_id}/comments", response_model=list[CommentOut])
-def list_comments(post_id: int, db: DB, me: CurrentUser):
+def list_comments(post_id: int, db: DB, me: OptionalUser):
     """Flat list (oldest first); the client nests replies by parent_id."""
     post = get_visible_post_or_404(db, me, post_id)
     comments = db.scalars(
