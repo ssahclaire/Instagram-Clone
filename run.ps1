@@ -7,7 +7,7 @@
   .\run.ps1               # 기본 실행
   .\run.ps1 -NoBrowser    # 브라우저 자동 열기 끄기
   .\run.ps1 -Reset        # DB/업로드 초기화 후 데모 데이터 다시 생성
-  .\run.ps1 -Reload       # 백엔드 코드 변경 시 자동 재시작 (개발용)
+  .\run.ps1 -Reload       # 백엔드 코드 변경 시 자동 재시작 (npm run dev 가 사용)
 #>
 param(
     [switch]$NoBrowser,
@@ -156,7 +156,7 @@ if (-not (Test-Path $viteJs)) { Fail 'frontend\node_modules 가 없습니다. -S
 # ---------------------------------------------------------------- 6. 서버 실행
 Step '서버 실행'
 $backendArgs = @('-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', $BackendPort)
-if ($Reload) { $backendArgs += '--reload' }
+if ($Reload) { $backendArgs += @('--reload', '--reload-dir', 'app') }  # venv 등은 감시하지 않음
 $procs = @()
 try {
     $procs += Start-Process -FilePath $venvPython -ArgumentList $backendArgs -WorkingDirectory $Backend -NoNewWindow -PassThru

@@ -78,11 +78,11 @@ Instagram_clone/
 ## 4. 설치 및 실행 (Windows PowerShell 기준)
 
 ### 4.0 원클릭 실행 (권장)
-프로젝트 폴더의 **`run.bat`을 더블클릭**하거나, 터미널에서 아래 중 하나를 실행합니다.
+사전 준비(Python 3.10+, Node.js)만 되어 있으면 **명령어 하나**로 끝납니다. 별도의 `npm install`/`pip install`은 필요 없습니다.
 ```powershell
-.\run.bat          # 또는
-npm start          # (Node.js 설치 후)
+npm run dev        # 프로젝트 루트 또는 frontend 폴더 어디서든 동일하게 동작
 ```
+Node.js가 없을 때는 **`run.bat`을 더블클릭**해도 같은 과정이 실행됩니다(백엔드 자동 재시작 없이).
 스크립트(`run.ps1`)가 자동으로 처리하는 일:
 1. Python 3.10+ / Node.js 확인 (새로 설치한 프로그램도 인식하도록 PATH 다시 읽기)
 2. 포트 8000·5173 사용 여부 확인
@@ -94,9 +94,9 @@ npm start          # (Node.js 설치 후)
 
 | 옵션 | 설명 | npm 스크립트 |
 | :--- | :--- | :--- |
-| (없음) | 기본 실행 | `npm start` |
-| `-Reset` | DB·업로드 초기화 후 데모 데이터 재생성 | `npm run start:reset` |
-| `-Reload` | 백엔드 코드 변경 시 자동 재시작 (개발용) | `npm run dev` |
+| `-Reload` | 백엔드 코드(`backend/app`) 변경 시 자동 재시작. 프론트엔드는 항상 즉시 반영(HMR) | **`npm run dev`** |
+| (없음) | 자동 재시작 없이 실행 | `npm start` |
+| `-Reset` | DB·업로드 초기화 후 데모 데이터 재생성 | `npm run reset` |
 | `-NoBrowser` | 브라우저 자동 열기 끄기 | |
 | `-SkipInstall` | 패키지 확인 건너뛰기 (빠른 재시작) | |
 
@@ -138,7 +138,7 @@ uvicorn app.main:app --reload --port 8000
 ```powershell
 cd frontend
 npm install
-npm run dev                          # http://localhost:5173
+npm run dev:vite                     # 프론트엔드만 실행 http://localhost:5173 (npm run dev 는 전체 실행)
 npm run build                        # 프로덕션 빌드 → dist/
 ```
 Vite 개발 서버가 `/api`, `/static` 요청을 `http://127.0.0.1:8000` 으로 프록시하므로 **백엔드를 먼저 실행**해야 합니다.
