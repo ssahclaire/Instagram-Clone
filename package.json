@@ -1,0 +1,11 @@
+{
+  "name": "instagram-clone",
+  "private": true,
+  "description": "Instagram clone (React + FastAPI + SQLite) - run everything with `npm start`",
+  "scripts": {
+    "start": "powershell -NoProfile -ExecutionPolicy Bypass -File run.ps1",
+    "start:reset": "powershell -NoProfile -ExecutionPolicy Bypass -File run.ps1 -Reset",
+    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File run.ps1 -Reload",
+    "test": "backend\\venv\\Scripts\\python.exe -m pytest backend -q"
+  }
+}

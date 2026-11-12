@@ -55,6 +55,8 @@ flowchart LR
 
 ```text
 Instagram_clone/
+├── run.bat / run.ps1  # 원클릭 실행 (설치 → 실행 → 브라우저)
+├── package.json      # npm start / start:reset / dev / test
 ├── guide.md · front.md · backend.md · db.md
 ├── backend/          # FastAPI 서버 (상세: backend.md §2)
 │   ├── app/
@@ -74,6 +76,33 @@ Instagram_clone/
 ---
 
 ## 4. 설치 및 실행 (Windows PowerShell 기준)
+
+### 4.0 원클릭 실행 (권장)
+프로젝트 폴더의 **`run.bat`을 더블클릭**하거나, 터미널에서 아래 중 하나를 실행합니다.
+```powershell
+.\run.bat          # 또는
+npm start          # (Node.js 설치 후)
+```
+스크립트(`run.ps1`)가 자동으로 처리하는 일:
+1. Python 3.10+ / Node.js 확인 (새로 설치한 프로그램도 인식하도록 PATH 다시 읽기)
+2. 포트 8000·5173 사용 여부 확인
+3. `backend/venv` 생성 + `pip install` (requirements.txt가 바뀐 경우에만)
+4. `backend/.env` 생성 (랜덤 `SECRET_KEY`), 첫 실행 시 데모 데이터 생성
+5. `npm install` (package-lock.json이 바뀐 경우에만)
+6. 백엔드 → 프론트엔드 순서로 실행, 준비되면 브라우저에서 `http://localhost:5173` 열기
+7. **Ctrl+C**로 두 서버를 함께 종료 (한쪽이 죽으면 다른 쪽도 정리)
+
+| 옵션 | 설명 | npm 스크립트 |
+| :--- | :--- | :--- |
+| (없음) | 기본 실행 | `npm start` |
+| `-Reset` | DB·업로드 초기화 후 데모 데이터 재생성 | `npm run start:reset` |
+| `-Reload` | 백엔드 코드 변경 시 자동 재시작 (개발용) | `npm run dev` |
+| `-NoBrowser` | 브라우저 자동 열기 끄기 | |
+| `-SkipInstall` | 패키지 확인 건너뛰기 (빠른 재시작) | |
+
+예: `.\run.bat -Reset -NoBrowser`. 백엔드 테스트는 `npm test`.
+
+아래 4.1~4.3은 각 단계를 수동으로 실행하는 방법입니다.
 
 ### 4.1 사전 준비
 - **Python** 3.10 이상
