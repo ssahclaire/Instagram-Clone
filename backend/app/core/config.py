@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parents[2]  # backend/
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=BASE_DIR / ".env", extra="ignore")
 
-    PROJECT_NAME: str = "Instagram Clone API"
+    PROJECT_NAME: str = "인스타그램 클론 API"
     DATABASE_URL: str = "sqlite:///./instagram.db"
     SECRET_KEY: str = "dev-only-secret-key-change-me-in-production-0123456789"
     ALGORITHM: str = "HS256"

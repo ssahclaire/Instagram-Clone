@@ -21,7 +21,7 @@ from app.services.files import ensure_upload_dirs
 from app.services.social import notify, sync_hashtags
 
 USERS = [
-    ("demo", "Demo User", "Instagram 클론 데모 계정입니다 👋\n서울 · 사진 · 여행", "https://example.com", False),
+    ("demo", "데모 사용자", "인스타그램 클론 데모 계정입니다 👋\n서울 · 사진 · 여행", "https://example.com", False),
     ("jisoo.travel", "김지수", "✈️ 여행 기록\n📍 지금은 제주", "", False),
     ("minho_cook", "이민호", "🍳 매일 집밥\n레시피 DM 환영", "https://minho.kitchen", False),
     ("haeun.art", "박하은", "🎨 일러스트레이터", "", False),
@@ -30,14 +30,14 @@ USERS = [
 ]
 
 CAPTIONS = [
-    "오늘의 하늘 ☁️ #sky #daily #seoul",
-    "주말 브런치 🥞 #brunch #food #weekend",
-    "바다 보러 왔어요 🌊 #jeju #travel #sea",
-    "새 작업 완성! #art #illustration",
-    "퇴근길 노을 #sunset #seoul",
-    "오늘의 커피 ☕ #coffee #cafe",
-    "산책하기 좋은 날 🌿 #walk #nature",
-    "집밥 최고 🍚 #homecooking #food",
+    "오늘의 하늘 ☁️ #하늘 #일상 #서울",
+    "주말 브런치 🥞 #브런치 #맛집 #주말",
+    "바다 보러 왔어요 🌊 #제주 #여행 #바다",
+    "새 작업 완성! #그림 #일러스트",
+    "퇴근길 노을 #노을 #서울",
+    "오늘의 커피 ☕ #커피 #카페",
+    "산책하기 좋은 날 🌿 #산책 #자연",
+    "집밥 최고 🍚 #집밥 #맛집",
 ]
 LOCATIONS = ["서울특별시", "제주도", "부산 해운대", "성수동", "", "한강공원"]
 COMMENTS = ["멋져요! 😍", "어디예요?", "와 대박", "저도 가보고 싶어요", "👏👏", "색감 너무 좋아요"]
@@ -83,7 +83,7 @@ def main():
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     if db.query(User).filter_by(username="demo").first():
-        print("Demo data already present. Use --reset to recreate.")
+        print("데모 데이터가 이미 있습니다. 다시 만들려면 --reset 옵션을 사용하세요.")
         return
 
     rnd = random.Random(42)
@@ -137,7 +137,7 @@ def main():
                      created_at=now - timedelta(hours=i + 1), expires_at=now + timedelta(hours=23 - i)))
 
     db.commit()
-    print(f"Seeded {len(users)} users, {len(posts)} posts. Login: demo / password123")
+    print(f"데모 데이터 생성 완료: 사용자 {len(users)}명, 게시물 {len(posts)}개. 로그인: demo / password123")
 
 
 if __name__ == "__main__":

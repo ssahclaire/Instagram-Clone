@@ -53,7 +53,7 @@ export default function HomePage() {
             </>
           ) : posts.length === 0 ? (
             <div className="px-4 py-10 text-center">
-              <h2 className="text-xl font-bold">Instagram에 오신 것을 환영합니다</h2>
+              <h2 className="text-xl font-bold">인스타그램에 오신 것을 환영합니다</h2>
               <p className="mt-2 text-ig-secondary">사람들을 팔로우하면 사진이 여기에 표시됩니다.</p>
               <div className="mt-6 rounded-lg border border-ig-border py-2 text-left">
                 <Suggestions users={suggested} setUsers={setSuggested} />
@@ -95,7 +95,7 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="mx-4 rounded-xl border border-ig-border p-5 text-center">
-            <p className="font-semibold">Instagram에 오신 것을 환영합니다</p>
+            <p className="font-semibold">인스타그램에 오신 것을 환영합니다</p>
             <p className="mt-1 text-sm text-ig-secondary">로그인하고 좋아요, 댓글, 팔로우, 게시물 작성을 시작해 보세요.</p>
             <Link to="/login" state={{ from: '/' }} className="btn-primary mt-4 block">
               로그인
@@ -116,7 +116,7 @@ export default function HomePage() {
             <Suggestions users={suggested} setUsers={setSuggested} compact />
           </>
         )}
-        <p className="mt-8 px-4 text-xs uppercase text-neutral-400">© 2026 Instagram Clone · React + FastAPI</p>
+        <p className="mt-8 px-4 text-xs uppercase text-neutral-400">© 2026 인스타그램 클론 · 리액트 + FastAPI</p>
       </aside>
     </div>
   )

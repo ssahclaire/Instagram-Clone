@@ -17,7 +17,9 @@ export function formatTime(iso, { short = false } = {}) {
 }
 
 export function formatCount(n) {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
-  if (n >= 10_000) return `${(n / 10_000).toFixed(1).replace(/\.0$/, '')}만`
+  if (n >= 10_000) {
+    const man = n / 10_000
+    return `${(man >= 100 ? Math.floor(man).toLocaleString('ko-KR') : man.toFixed(1).replace(/\.0$/, ''))}만`
+  }
   return n.toLocaleString('ko-KR')
 }
