@@ -51,15 +51,48 @@ function Test-PortInUse($port) {
     return $null
 }
 
+# 백엔드는 별도(숨김) 콘솔에서 실행하고, 로그 파일을 읽어 이 창에 이어서 출력함.
+# 이유: Windows에서 uvicorn --reload 는 재시작할 때 콘솔 전체에 Ctrl+C 를 보내므로,
+#       같은 콘솔을 쓰면 이 스크립트와 프론트엔드까지 함께 종료됨.
+$script:LogFiles = @()
+$script:LogPos = @{}
+function Show-BackendLog {
+    foreach ($f in $script:LogFiles) {
+        if (-not (Test-Path $f)) { continue }
+        $fs = [IO.File]::Open($f, 'Open', 'Read', 'ReadWrite')
+        try {
+            $pos = [long]$script:LogPos[$f]
+            if ($fs.Length -lt $pos) { $pos = 0 }
+            if ($fs.Length -eq $pos) { continue }
+            [void]$fs.Seek($pos, 'Begin')
+            $text = (New-Object IO.StreamReader($fs, [Text.Encoding]::UTF8)).ReadToEnd()
+            $script:LogPos[$f] = $fs.Length
+            if ($text) { Write-Host -NoNewline $text }
+        } finally { $fs.Dispose() }
+    }
+}
+
 function Wait-Http($url, $seconds) {
     $deadline = (Get-Date).AddSeconds($seconds)
     while ((Get-Date) -lt $deadline) {
         try {
             Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 2 | Out-Null
+            Show-BackendLog
             return $true
-        } catch { Start-Sleep -Milliseconds 500 }
+        } catch { Show-BackendLog; Start-Sleep -Milliseconds 500 }
     }
     return $false
+}
+
+# 이전 실행에서 창을 강제로 닫아 남아 있는 이 프로젝트의 백엔드 프로세스 정리
+function Stop-StaleBackend {
+    $venvPy = [regex]::Escape((Join-Path $Backend 'venv\Scripts\python.exe'))
+    Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -match $venvPy -and $_.CommandLine -match 'uvicorn app\.main:app' } |
+        ForEach-Object {
+            Ok "이전 실행에서 남은 백엔드 종료 (PID $($_.ProcessId))"
+            & taskkill.exe /PID $_.ProcessId /T /F 2>$null | Out-Null
+        }
 }
 
 Write-Host '================================================' -ForegroundColor Magenta
@@ -84,6 +117,7 @@ if (-not $node) { Fail "Node.js가 필요합니다. 설치: winget install OpenJ
 Ok "Node.js $(node --version)"
 
 # ---------------------------------------------------------------- 2. 포트 확인
+Stop-StaleBackend
 foreach ($p in @($BackendPort, $FrontendPort)) {
     $proc = Test-PortInUse $p
     if ($proc) { Fail "포트 $p 이(가) 이미 사용 중입니다 ($($proc.ProcessName), PID $($proc.Id)). 해당 프로그램을 종료한 뒤 다시 실행하세요." }
@@ -157,9 +191,19 @@ if (-not (Test-Path $viteJs)) { Fail 'frontend\node_modules 가 없습니다. -S
 Step '서버 실행'
 $backendArgs = @('-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', $BackendPort)
 if ($Reload) { $backendArgs += @('--reload', '--reload-dir', 'app') }  # venv 등은 감시하지 않음
+$logDir = Join-Path $Backend 'logs'
+New-Item -ItemType Directory -Force $logDir | Out-Null
+$outLog = Join-Path $logDir 'backend.out.log'
+$errLog = Join-Path $logDir 'backend.err.log'
+foreach ($f in @($outLog, $errLog)) { [IO.File]::WriteAllText($f, '') }
+$script:LogFiles = @($errLog, $outLog)
+$env:PYTHONIOENCODING = 'utf-8'
+$env:PYTHONUNBUFFERED = '1'
+
 $procs = @()
 try {
-    $procs += Start-Process -FilePath $venvPython -ArgumentList $backendArgs -WorkingDirectory $Backend -NoNewWindow -PassThru
+    $procs += Start-Process -FilePath $venvPython -ArgumentList $backendArgs -WorkingDirectory $Backend `
+        -WindowStyle Hidden -RedirectStandardOutput $outLog -RedirectStandardError $errLog -PassThru
     if (-not (Wait-Http "http://127.0.0.1:$BackendPort/api/health" 40)) { Fail '백엔드가 시작되지 않았습니다. 위 로그를 확인하세요.' }
     Ok "백엔드   http://localhost:$BackendPort   (API 문서: /docs)"
 
@@ -177,9 +221,10 @@ try {
 
     while ($true) {
         foreach ($p in $procs) {
-            if ($p.HasExited) { Fail "서버 프로세스(PID $($p.Id))가 종료되었습니다. 위 로그를 확인하세요." }
+            if ($p.HasExited) { Show-BackendLog; Fail "서버 프로세스(PID $($p.Id))가 종료되었습니다. 위 로그를 확인하세요." }
         }
-        Start-Sleep -Seconds 1
+        Show-BackendLog
+        Start-Sleep -Milliseconds 300
     }
 } finally {
     # Ctrl+C 또는 오류 시 두 서버(자식 프로세스 포함)를 모두 정리

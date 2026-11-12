@@ -8,6 +8,10 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
+# Logs
+*.log
+backend/logs/
+
 # SQLite databases
 *.db
 *.db-wal
