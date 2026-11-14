@@ -19,9 +19,7 @@ class User(Base):
     website: Mapped[str] = mapped_column(String(255), default="", nullable=False)
     profile_image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_private: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
     posts = relationship("Post", back_populates="author", cascade="all, delete-orphan", passive_deletes=True)
 

@@ -51,7 +51,7 @@ def visible_posts_clause(viewer_id: int | None):
 
 
 def get_user_or_404(db: Session, username: str) -> User:
-    user = db.scalar(select(User).where(User.username == username.lower(), User.is_active.is_(True)))
+    user = db.scalar(select(User).where(User.username == username.lower()))
     if not user:
         raise HTTPException(404, "사용자를 찾을 수 없습니다.")
     return user
@@ -148,7 +148,6 @@ def serialize_posts(db: Session, viewer: User | None, posts: list[Post]) -> list
             is_liked=p.id in liked,
             is_bookmarked=p.id in saved,
             created_at=p.created_at,
-            updated_at=p.updated_at,
         )
         for p in posts
     ]

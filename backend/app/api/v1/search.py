@@ -20,8 +20,7 @@ def search(db: DB, _: OptionalUser, q: str = Query(min_length=1, max_length=50))
     like = f"%{term}%"
 
     users = [] if tag_only else db.scalars(
-        select(User).where(User.is_active.is_(True),
-                           or_(User.username.like(like), func.lower(User.full_name).like(like)))
+        select(User).where(or_(User.username.like(like), func.lower(User.full_name).like(like)))
         .order_by(func.length(User.username)).limit(15)
     ).all()
 

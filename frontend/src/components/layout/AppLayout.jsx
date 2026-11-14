@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { notificationApi } from '../../api/postApi'
+import { directApi } from '../../api/directApi'
 import { useAuth } from '../../context/AuthContext'
 import { useUI } from '../../context/UIContext'
 import { FullScreenLoader } from './ProtectedRoute'
@@ -15,6 +16,7 @@ const POLL_MS = 30_000
 export default function AppLayout() {
   const [panel, setPanel] = useState(null) // 'search' | 'notifications' | null
   const [unread, setUnread] = useState(0)
+  const [directUnread, setDirectUnread] = useState(0)
   const { openPostId, closePost, createOpen, closeCreate } = useUI()
   const { user, loading } = useAuth()
   const { pathname } = useLocation()
@@ -22,16 +24,24 @@ export default function AppLayout() {
   const refreshUnread = useCallback(() => {
     notificationApi.unreadCount().then(setUnread).catch(() => {})
   }, [])
+  const refreshDirectUnread = useCallback(() => {
+    directApi.unreadCount().then(setDirectUnread).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (!user) {
       setUnread(0)
+      setDirectUnread(0)
       return
     }
-    refreshUnread()
-    const t = setInterval(refreshUnread, POLL_MS)
+    const refresh = () => {
+      refreshUnread()
+      refreshDirectUnread()
+    }
+    refresh()
+    const t = setInterval(refresh, POLL_MS)
     return () => clearInterval(t)
-  }, [user, refreshUnread])
+  }, [user, refreshUnread, refreshDirectUnread])
 
   // close drawers / modals on navigation
   useEffect(() => {
@@ -46,8 +56,8 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen">
-      <Sidebar panel={panel} setPanel={setPanel} unread={unread} />
-      <MobileNav unread={unread} />
+      <Sidebar panel={panel} setPanel={setPanel} unread={unread} directUnread={directUnread} />
+      <MobileNav unread={unread} directUnread={directUnread} />
 
       {panel === 'search' && <SearchDrawer onClose={closePanel} />}
       {panel === 'notifications' && user && (
@@ -58,8 +68,12 @@ export default function AppLayout() {
         </Drawer>
       )}
 
-      <main className={`pb-[48px] md:pb-0 md:pl-[72px] lg:pl-[244px] ${pathname === '/' ? 'pt-[44px] md:pt-0' : ''}`}>
-        <Outlet context={{ refreshUnread, setUnread }} />
+      <main
+        className={`pb-[48px] md:pb-0 md:pl-[72px] ${pathname.startsWith('/direct') ? '' : 'lg:pl-[244px]'} ${
+          pathname === '/' ? 'pt-[44px] md:pt-0' : ''
+        }`}
+      >
+        <Outlet context={{ refreshUnread, setUnread, refreshDirectUnread }} />
       </main>
 
       {createOpen && user && <CreatePostModal onClose={closeCreate} />}

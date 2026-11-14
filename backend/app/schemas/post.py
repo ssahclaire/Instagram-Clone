@@ -23,7 +23,6 @@ class PostOut(BaseModel):
     is_liked: bool
     is_bookmarked: bool
     created_at: UTCDateTime
-    updated_at: UTCDateTime
 
 
 class PostUpdate(BaseModel):

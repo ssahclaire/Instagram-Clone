@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout from './components/layout/AppLayout'
 import ProtectedRoute, { GuestRoute } from './components/layout/ProtectedRoute'
+import DirectPage from './pages/DirectPage'
 import EditProfilePage from './pages/EditProfilePage'
 import ExplorePage from './pages/ExplorePage'
 import HomePage from './pages/HomePage'
@@ -31,6 +32,8 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/accounts/edit" element={<EditProfilePage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/direct" element={<DirectPage />} />
+          <Route path="/direct/t/:conversationId" element={<DirectPage />} />
           <Route path="/:username/saved" element={<ProfilePage key="saved" tab="saved" />} />
         </Route>
       </Route>

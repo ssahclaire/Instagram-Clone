@@ -1,7 +1,4 @@
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import func, or_, select
 
 from app.api.deps import DB, CurrentUser
@@ -21,7 +18,7 @@ def _token_for(user: User) -> Token:
 def _authenticate(db: DB, identifier: str, password: str) -> User:
     ident = identifier.strip().lower()
     user = db.scalar(select(User).where(or_(User.username == ident, func.lower(User.email) == ident)))
-    if not user or not user.is_active or not verify_password(password, user.hashed_password):
+    if not user or not verify_password(password, user.hashed_password):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, BAD_LOGIN)
     return user
 
@@ -46,12 +43,6 @@ def register(body: RegisterIn, db: DB):
 @router.post("/login", response_model=Token)
 def login(body: LoginIn, db: DB):
     return _token_for(_authenticate(db, body.username, body.password))
-
-
-@router.post("/token", response_model=Token, include_in_schema=True,
-             summary="OAuth2 form login (Swagger 'Authorize' 버튼용)")
-def token(form: Annotated[OAuth2PasswordRequestForm, Depends()], db: DB):
-    return _token_for(_authenticate(db, form.username, form.password))
 
 
 @router.get("/me", response_model=UserMe)

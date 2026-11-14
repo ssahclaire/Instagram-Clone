@@ -52,7 +52,7 @@ export default function ProfilePage({ tab: requestedTab = 'posts' }) {
         <p className="mt-4">
           {notFound ? '클릭하신 링크가 잘못되었거나 페이지가 삭제되었습니다. ' : errorMessage(error)}
           <Link to="/" className="text-ig-link">
-            Instagram으로 돌아가기.
+            인스타그램으로 돌아가기.
           </Link>
         </p>
       </div>

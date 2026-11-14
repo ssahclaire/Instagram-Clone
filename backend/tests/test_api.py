@@ -122,8 +122,9 @@ def test_private_account(client):
     assert all(p["id"] != pid for p in client.get(f"{API}/posts/explore", headers=hv).json())
 
     assert client.post(f"{API}/users/erin/follow", headers=hv).json()["follow_status"] == "pending"
-    reqs = client.get(f"{API}/users/me/follow-requests", headers=hp).json()
-    assert [u["username"] for u in reqs] == ["frank"]
+    # the request shows up in erin's notifications (that's where the UI accepts it)
+    reqs = [n for n in client.get(f"{API}/notifications", headers=hp).json() if n["type"] == "follow_request"]
+    assert [n["actor"]["username"] for n in reqs] == ["frank"]
     assert client.post(f"{API}/users/me/follow-requests/frank/accept", headers=hp).status_code == 204
     assert client.get(f"{API}/posts/{pid}", headers=hv).status_code == 200
     assert client.get(f"{API}/users/erin/followers", headers=hv).json()[0]["username"] == "frank"
