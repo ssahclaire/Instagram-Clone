@@ -86,8 +86,11 @@ def user_list_items(db: Session, viewer: User | None, users: list[User]) -> list
 
 # ---------- hashtags ----------
 
+HASHTAG_MAX = 100  # hashtags.name VARCHAR(100)
+
+
 def extract_hashtags(text: str) -> set[str]:
-    return {m.lower() for m in HASHTAG_RE.findall(text or "")}
+    return {m.lower() for m in HASHTAG_RE.findall(text or "") if len(m) <= HASHTAG_MAX}
 
 
 def sync_hashtags(db: Session, post: Post) -> None:
@@ -159,6 +162,6 @@ def post_query():
 
 def serialize_comment(c: Comment) -> CommentOut:
     return CommentOut(
-        id=c.id, post_id=c.post_id, parent_id=c.parent_id,
+        id=c.id, parent_id=c.parent_id,
         author=UserPublic.model_validate(c.author), content=c.content, created_at=c.created_at,
     )

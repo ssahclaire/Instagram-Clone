@@ -108,6 +108,7 @@ erDiagram
 ### 3.9 `post_hashtags` — 게시물 ↔ 해시태그 (N:M)
 `(post_id, hashtag_id)` 복합 PK · `hashtag_id` INDEX
 - 캡션 작성·수정 시 정규식 `#([0-9A-Za-z_가-힣]+)`로 추출해 다시 맞춤
+- 100자를 넘는 해시태그는 저장하지 않음 (SQLite는 VARCHAR 길이를 강제하지 않으므로 앱에서 검사)
 
 ### 3.10 `stories` — 24시간 스토리
 `id` PK · `user_id` FK→users · `image_url` VARCHAR(500) · `created_at` · `expires_at` (INDEX, 생성 + 24시간)

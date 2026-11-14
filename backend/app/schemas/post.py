@@ -8,8 +8,7 @@ class PostImageOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    image_url: str
-    display_order: int
+    image_url: str  # list is already sorted by display_order
 
 
 class PostOut(BaseModel):
@@ -37,7 +36,6 @@ class CommentIn(BaseModel):
 
 class CommentOut(BaseModel):
     id: int
-    post_id: int
     parent_id: int | None
     author: UserPublic
     content: str

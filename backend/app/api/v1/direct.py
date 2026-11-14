@@ -29,8 +29,7 @@ def _get_conversation_or_404(db: Session, me: User, conversation_id: int) -> Con
 
 
 def _message_out(m: Message, me_id: int) -> MessageOut:
-    return MessageOut(id=m.id, conversation_id=m.conversation_id, sender_id=m.sender_id, content=m.content,
-                      created_at=m.created_at, is_mine=m.sender_id == me_id)
+    return MessageOut(id=m.id, content=m.content, created_at=m.created_at, is_mine=m.sender_id == me_id)
 
 
 def _unread_counts(db: Session, me: User, convs: list[Conversation]) -> dict[int, int]:
@@ -50,7 +49,7 @@ def _conversation_out(c: Conversation, me: User, last: Message | None, unread: i
     return ConversationOut(
         id=c.id, other_user=UserPublic.model_validate(c.other(me.id)),
         last_message=_message_out(last, me.id) if last else None, unread_count=unread,
-        other_last_read_id=c.last_read_id(c.other_id(me.id)), last_message_at=c.last_message_at,
+        other_last_read_id=c.last_read_id(c.other_id(me.id)),
     )
 
 

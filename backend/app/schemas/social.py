@@ -9,7 +9,6 @@ class StoryOut(BaseModel):
     id: int
     image_url: str
     created_at: UTCDateTime
-    expires_at: UTCDateTime
 
 
 class StoryGroup(BaseModel):

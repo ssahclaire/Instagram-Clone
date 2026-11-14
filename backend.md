@@ -95,32 +95,49 @@ backend/
 
 ## 5. 공통 응답 모델
 
+응답에는 **프론트엔드가 실제로 읽는 필드만** 담습니다. 필드를 추가하려면 그 필드를 쓰는 화면이 있어야 합니다
+(`tests/test_contract.py`가 응답 필드 목록을 고정해 검사).
+
 ```text
 UserPublic   = { id, username, full_name, profile_image_url|null, is_private }
-UserMe       = UserPublic + { email, bio, website, created_at }
+UserMe       = UserPublic + { bio, website }                       ← 설정 화면이 편집하는 값
 UserListItem = UserPublic + { follow_status: "none"|"pending"|"accepted", is_me }
 Profile      = UserPublic + { bio, website, post_count, follower_count, following_count,
                               follow_status, follows_you, is_me, can_view_posts }
 Token        = { access_token, token_type: "bearer", user: UserMe }
 
 PostOut      = { id, author: UserPublic, caption, location,
-                 images: [{ id, image_url, display_order }],
+                 images: [{ id, image_url }],                      ← display_order 순으로 정렬해 반환
                  like_count, comment_count, is_liked, is_bookmarked, created_at }
-CommentOut   = { id, post_id, parent_id|null, author: UserPublic, content, created_at }
+CommentOut   = { id, parent_id|null, author: UserPublic, content, created_at }
 HashtagOut   = { name, post_count }
 
-StoryGroup   = { user: UserPublic, stories: [{ id, image_url, created_at, expires_at }] }
+StoryOut     = { id, image_url, created_at }
+StoryGroup   = { user: UserPublic, stories: StoryOut[] }
 NotificationOut = { id, type, actor: UserListItem, post_id|null, post_thumbnail|null,
                     comment_text|null, is_read, created_at }
 
-MessageOut      = { id, conversation_id, sender_id, content, created_at, is_mine }
+MessageOut      = { id, content, created_at, is_mine }
 ConversationOut = { id, other_user: UserPublic, last_message: MessageOut|null,
-                    unread_count, other_last_read_id, last_message_at|null }
+                    unread_count, other_last_read_id }
 ```
+
+| 응답 필드 | DB 출처 |
+| :--- | :--- |
+| `post_count`, `follower_count`, `following_count` | `posts`, `follows(status='accepted')` 집계 |
+| `like_count`, `comment_count`, `is_liked`, `is_bookmarked` | `post_likes`, `comments`, `bookmarks` 집계·존재 여부 |
+| `follow_status`, `follows_you`, `can_view_posts` | `follows` 조회 + 8.1 가시성 규칙 |
+| `HashtagOut.post_count` | `post_hashtags` 집계 |
+| `post_thumbnail`, `comment_text` | `post_images(display_order=0)`, `comments.content` |
+| `is_mine` | `messages.sender_id = 나` |
+| `unread_count`, `other_last_read_id` | `messages` 집계, `conversations.*_last_read_id` |
 
 ---
 
 ## 6. REST API 명세
+
+총 **45개** 엔드포인트 (+ 헬스 체크 `GET /api/health`). 프론트엔드 `src/api/*.js`의 메서드 45개와 1:1로 대응하며,
+화면에서 호출하지 않는 엔드포인트는 없습니다. 테이블별 읽기/쓰기는 [6.8](#68-엔드포인트--테이블-매핑)을 참고하세요.
 
 표의 **인증** 열: `선택` = 게스트 허용, `필수` = 로그인 필요.
 **사용 화면** 열은 해당 API를 호출하는 프론트엔드 위치입니다.
@@ -170,13 +187,13 @@ ConversationOut = { id, other_user: UserPublic, last_message: MessageOut|null,
 | 메서드 | 경로 | 인증 | 요청 → 응답 | 사용 화면 / 규칙 |
 | :--- | :--- | :--- | :--- | :--- |
 | GET | `/feed` | 선택 | → `StoryGroup[]` | 스토리 바. 로그인: 나 + accepted 팔로잉 / 게스트: 공개 계정. 미만료만, 사용자별 그룹(내 것이 먼저, 이후 최근 업로드 순) |
-| POST | `` | 필수 | multipart `file` → `201 Story` | "내 스토리" 추가. 24시간 후 만료 |
+| POST | `` | 필수 | multipart `file` → `201 StoryOut` | "내 스토리" 추가. 24시간 후 만료 |
 | DELETE | `/{story_id}` | 필수 | → `204` | 스토리 뷰어에서 삭제. 본인만 |
 
 ### 6.5 Notifications (`/api/v1/notifications`) — 모두 필수 인증
 | 메서드 | 경로 | 요청 → 응답 | 사용 화면 / 규칙 |
 | :--- | :--- | :--- | :--- |
-| GET | `` | → `NotificationOut[]` (최근 50개) | 알림 드로어·페이지 |
+| GET | `` | → `NotificationOut[]` (최근 50개 고정, 쿼리 파라미터 없음) | 알림 드로어·페이지 |
 | GET | `/unread-count` | → `{count}` | 사이드바 하트 배지 (30초 폴링) |
 | POST | `/read-all` | → `204` | 알림 목록을 열면 모두 읽음 처리 |
 
@@ -196,6 +213,53 @@ ConversationOut = { id, other_user: UserPublic, last_message: MessageOut|null,
 | POST | `/conversations/{id}/read` | → `204` | 대화창을 열거나 새 메시지를 받으면 읽음 처리 |
 | DELETE | `/messages/{message_id}` | → `204` | 전송 취소. 본인 메시지만(`404`) |
 | GET | `/unread-count` | → `{count}` | 사이드바 메시지 배지 = 안 읽은 메시지가 있는 **대화 수** (30초 폴링) |
+
+### 6.8 엔드포인트 ↔ 테이블 매핑
+**R** = 읽기, **W** = 쓰기(추가·수정·삭제). 경로는 `/api/v1` 생략. 모든 엔드포인트는 7장의 테이블·컬럼만 사용합니다.
+
+| 엔드포인트 | users | follows | posts | post_images | post_likes | bookmarks | comments | hashtags · post_hashtags | stories | notifications | conversations | messages |
+| :--- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
+| `POST /auth/register` | W | | | | | | | | | | | |
+| `POST /auth/login`, `GET /auth/me` | R | | | | | | | | | | | |
+| `GET /users/suggestions` | R | R | | | | | | | | | | |
+| `PUT /users/me/profile` | W | W¹ | | | | | | | | W¹ | | |
+| `PUT /users/me/password`, `POST·DELETE /users/me/avatar` | W | | | | | | | | | | | |
+| `GET /users/me/saved` | R | R | R | R | R | R | R | | | | | |
+| `POST /users/me/follow-requests/{u}/accept` · `DELETE …/{u}` | R | W | | | | | | | | W | | |
+| `DELETE /users/me/followers/{u}` | R | W | | | | | | | | | | |
+| `GET /users/{u}` | R | R | R | | | | | | | | | |
+| `GET /users/{u}/posts` | R | R | R | R | R | R | R | | | | | |
+| `POST /users/{u}/follow` | R | W | | | | | | | | W | | |
+| `GET /users/{u}/followers` · `/following` | R | R | | | | | | | | | | |
+| `GET /posts/feed` · `/explore` · `/tags/{name}` · `/{id}` | R | R | R | R | R | R | R | R² | | | | |
+| `POST /posts` | | | W | W | | | | W | | | | |
+| `PUT /posts/{id}` | | | W | | | | | W | | | | |
+| `DELETE /posts/{id}` | | | W | W³ | W³ | W³ | W³ | W³ | | W³ | | |
+| `POST /posts/{id}/like` | | R | R | | W | | | | | W | | |
+| `GET /posts/{id}/likes` | R | R | R | | R | | | | | | | |
+| `POST /posts/{id}/bookmark` | | R | R | | | W | | | | | | |
+| `GET /posts/{id}/comments` | R | R | R | | | | R | | | | | |
+| `POST /posts/{id}/comments` | | R | R | | | | W | | | W | | |
+| `DELETE /posts/comments/{id}` | | | R | | | | W | | | W³ | | |
+| `GET /stories/feed` | R | R | | | | | | | R | | | |
+| `POST /stories`, `DELETE /stories/{id}` | | | | | | | | | W | | | |
+| `GET /notifications` | R | R | | R | | | R | | | R | | |
+| `GET /notifications/unread-count` | | | | | | | | | | R | | |
+| `POST /notifications/read-all` | | | | | | | | | | W | | |
+| `GET /search` | R | | | | | | | R | | | | |
+| `GET /direct/conversations` · `/{id}` | R | | | | | | | | | | R | R |
+| `POST /direct/conversations` | R | | | | | | | | | | W | R |
+| `GET /direct/conversations/{id}/messages` | | | | | | | | | | | R | R |
+| `POST /direct/conversations/{id}/messages` | | | | | | | | | | | W | W |
+| `POST /direct/conversations/{id}/read` | | | | | | | | | | | W | R |
+| `DELETE /direct/messages/{id}` | | | | | | | | | | | W | W |
+| `GET /direct/unread-count` | | | | | | | | | | | R | R |
+
+로그인이 필요한(또는 토큰을 보낸) 요청은 모두 토큰 확인을 위해 `users`를 추가로 읽습니다. 표에는 그 외의 접근만 표시했습니다.
+
+¹ 비공개 → 공개 전환 시 `pending` 요청 수락, `follow_request` 알림을 `follow`로 변경
+² `/tags/{name}`만 해시태그 조인
+³ `ON DELETE CASCADE`로 연쇄 삭제
 
 ---
 
@@ -351,6 +415,7 @@ erDiagram
 
 ### 8.5 해시태그
 - 캡션에서 정규식 `#([0-9A-Za-z_가-힣]+)`로 추출, 소문자로 저장
+- 100자를 넘는 해시태그는 저장하지 않음 (`hashtags.name` VARCHAR(100). SQLite는 길이를 강제하지 않으므로 앱에서 검사)
 - 게시물 작성·수정 시 `post_hashtags`를 다시 맞춤
 
 ### 8.6 스토리
@@ -447,7 +512,8 @@ cd backend
 - 비공개 계정: 팔로우 요청·수락·가시성
 - 스토리: 업로드·피드·삭제
 - 메시지: 대화 시작·중복 방지·전송·외부인 차단·안 읽은 수·읽음 표시·이전 메시지·전송 취소
-- 스키마: 예전 DB의 불필요한 컬럼 삭제 마이그레이션(재실행 안전), 삭제한 API가 없는지, 토큰 없음·잘못된 토큰 `401`
+- 스키마: 예전 DB의 불필요한 컬럼 삭제 마이그레이션(재실행 안전), 잠긴 DB 안내, 삭제한 API가 없는지, 토큰 없음·잘못된 토큰 `401`
+- 계약: 주요 응답의 필드 목록이 5장과 정확히 같은지, 100자 초과 해시태그 미저장 (`test_contract.py`)
 
 ---
 
@@ -480,3 +546,15 @@ cd backend
 | `DOCS_ENABLED` | `false`면 `/docs`, `/redoc`, `/openapi.json` 비활성화 |
 | `ENVIRONMENT` | `production`일 때 `SECRET_KEY`가 기본값·예시값이거나 32자 미만이면 시작 거부 |
 | 테스트 | `tests/test_schema.py` (마이그레이션, 삭제한 API, 401) |
+
+### 13.4 API 명세 검증 (2026-11-14)
+프론트엔드 `src/api/*.js`의 메서드 45개, 각 화면이 읽는 응답 필드, 7장 스키마를 백엔드 엔드포인트 45개와 대조했습니다.
+
+| 항목 | 결과 |
+| :--- | :--- |
+| 누락된 엔드포인트 | 없음. 공유(링크 복사)·본 스토리·최근 검색어는 브라우저에서만 처리 |
+| 사용하지 않는 엔드포인트 | 없음. 45개 모두 화면에서 호출 |
+| 응답에서 뺀 필드 (화면에서 읽지 않음) | `UserMe.email`·`created_at`, `images[].display_order`, `CommentOut.post_id`, `StoryOut.expires_at`, `MessageOut.conversation_id`·`sender_id`, `ConversationOut.last_message_at` (DB 컬럼은 정렬·필터에 쓰므로 유지) |
+| 쿼리 파라미터 | `GET /notifications`의 `limit` 제거 (프론트가 보내지 않음, 50개 고정) · `GET /posts/explore` 기본 `limit` 30 → 24 (탐색 화면 값) |
+| DB 정합성 | `hashtags.name` VARCHAR(100)을 넘는 해시태그가 저장될 수 있던 문제 → 앱에서 100자 초과 제외 |
+| 문서 | 5장 응답 모델·필드 출처, 6.8 엔드포인트 ↔ 테이블 매핑 추가 |

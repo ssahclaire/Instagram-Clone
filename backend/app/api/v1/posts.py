@@ -37,7 +37,7 @@ def feed(db: DB, me: OptionalUser, skip: int = 0, limit: int = 10):
 
 
 @router.get("/explore", response_model=list[PostOut])
-def explore(db: DB, me: OptionalUser, skip: int = 0, limit: int = 30):
+def explore(db: DB, me: OptionalUser, skip: int = 0, limit: int = 24):
     """Visible posts from other users, ranked by likes then recency."""
     likes = select(PostLike.post_id, func.count().label("n")).group_by(PostLike.post_id).subquery()
     q = post_query().outerjoin(likes, likes.c.post_id == Post.id).where(visible_posts_clause(me.id if me else None))
