@@ -11,8 +11,10 @@ engine = create_engine(settings.database_url, connect_args={"check_same_thread":
 @event.listens_for(engine, "connect")
 def _sqlite_pragmas(dbapi_conn, _record):
     cur = dbapi_conn.cursor()
-    cur.execute("PRAGMA foreign_keys = ON")
-    cur.execute("PRAGMA journal_mode = WAL")
+    cur.execute("PRAGMA foreign_keys = ON")  # enforce FKs / ON DELETE CASCADE (off by default in SQLite)
+    cur.execute("PRAGMA journal_mode = WAL")  # readers don't block the writer
+    cur.execute("PRAGMA busy_timeout = 5000")  # wait up to 5s for a lock instead of failing immediately
+    cur.execute("PRAGMA synchronous = NORMAL")  # safe with WAL, fewer fsyncs
     cur.close()
 
 

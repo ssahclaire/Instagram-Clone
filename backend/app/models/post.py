@@ -15,7 +15,6 @@ class Post(Base):
     caption: Mapped[str] = mapped_column(Text, default="", nullable=False)
     location: Mapped[str] = mapped_column(String(100), default="", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
     author = relationship("User", back_populates="posts")
     images = relationship(
@@ -69,7 +68,6 @@ class Hashtag(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
 
 
 class PostHashtag(Base):

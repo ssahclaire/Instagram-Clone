@@ -21,7 +21,6 @@ export const userApi = {
   following: (username) => client.get(`/users/${enc(username)}/following`).then((r) => r.data),
   removeFollower: (username) => client.delete(`/users/me/followers/${enc(username)}`),
   suggestions: (limit = 5) => client.get('/users/suggestions', { params: { limit } }).then((r) => r.data),
-  followRequests: () => client.get('/users/me/follow-requests').then((r) => r.data),
   acceptRequest: (username) => client.post(`/users/me/follow-requests/${enc(username)}/accept`),
   declineRequest: (username) => client.delete(`/users/me/follow-requests/${enc(username)}`),
   search: (q) => client.get('/search', { params: { q } }).then((r) => r.data),

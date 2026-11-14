@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Link2, Settings } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import { directApi } from '../../api/directApi'
+import { errorMessage } from '../../api/client'
+import { useToast } from '../common/Toast'
 import { formatCount } from '../../utils/formatTime'
 import Avatar from '../common/Avatar'
 import FollowButton from '../common/FollowButton'
@@ -9,8 +12,21 @@ import AvatarUploadModal from './AvatarUploadModal'
 import FollowListModal from './FollowListModal'
 
 export default function ProfileHeader({ profile, setProfile }) {
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const toast = useToast()
+  const [opening, setOpening] = useState(false)
+
+  const openChat = async () => {
+    setOpening(true)
+    try {
+      const c = await directApi.start(profile.username)
+      navigate(`/direct/t/${c.id}`)
+    } catch (err) {
+      toast(errorMessage(err))
+      setOpening(false)
+    }
+  }
   const [avatarOpen, setAvatarOpen] = useState(false)
   const [listType, setListType] = useState(null)
   const canOpenLists = profile.can_view_posts
@@ -46,20 +62,27 @@ export default function ProfileHeader({ profile, setProfile }) {
       </Link>
     </div>
   ) : (
-    <FollowButton
-      username={profile.username}
-      status={profile.follow_status}
-      className="min-w-[110px]"
-      onChange={(follow_status, r) =>
-        setProfile((p) => ({
-          ...p,
-          follow_status,
-          follower_count: r.follower_count,
-          // following a public account (or accepted private) makes posts visible
-          can_view_posts: !p.is_private || follow_status === 'accepted',
-        }))
-      }
-    />
+    <div className="flex gap-2">
+      <FollowButton
+        username={profile.username}
+        status={profile.follow_status}
+        className="min-w-[110px] flex-1 md:flex-none"
+        onChange={(follow_status, r) =>
+          setProfile((p) => ({
+            ...p,
+            follow_status,
+            follower_count: r.follower_count,
+            // following a public account (or accepted private) makes posts visible
+            can_view_posts: !p.is_private || follow_status === 'accepted',
+          }))
+        }
+      />
+      {user && (
+        <button type="button" onClick={openChat} disabled={opening} className="btn-secondary flex-1 md:flex-none">
+          메시지 보내기
+        </button>
+      )}
+    </div>
   )
 
   return (

@@ -1,5 +1,5 @@
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
-from sqlalchemy import func, or_, select
+from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from sqlalchemy import func, select
 
 from app.api.deps import DB, CurrentUser, OptionalUser
 from app.core.security import hash_password, verify_password
@@ -24,15 +24,6 @@ def _follower_count(db: DB, user_id: int) -> int:
 
 # ----- static paths first (before /{username}) -----
 
-@router.get("/search", response_model=list[UserPublic])
-def search_users(db: DB, _: OptionalUser, q: str = Query(min_length=1, max_length=50), limit: int = 20):
-    term = f"%{q.strip().lower().lstrip('@')}%"
-    return db.scalars(
-        select(User).where(User.is_active.is_(True), or_(User.username.like(term), func.lower(User.full_name).like(term)))
-        .order_by(func.length(User.username)).limit(min(limit, 50))
-    ).all()
-
-
 @router.get("/suggestions", response_model=list[UserListItem])
 def suggestions(db: DB, me: OptionalUser, limit: int = 5):
     """People not yet followed, ranked by follower count. Guest: popular accounts."""
@@ -40,7 +31,7 @@ def suggestions(db: DB, me: OptionalUser, limit: int = 5):
         select(Follow.following_id, func.count().label("n"))
         .where(Follow.status == "accepted").group_by(Follow.following_id).subquery()
     )
-    q = select(User).outerjoin(followers, followers.c.following_id == User.id).where(User.is_active.is_(True))
+    q = select(User).outerjoin(followers, followers.c.following_id == User.id)
     if me is not None:
         already = select(Follow.following_id).where(Follow.follower_id == me.id)
         q = q.where(User.id != me.id, User.id.not_in(already))
@@ -110,16 +101,6 @@ def saved_posts(db: DB, me: CurrentUser, skip: int = 0, limit: int = 30):
     # drop posts that became invisible (author went private)
     posts = [p for p in posts if can_view_user_content(db, me, p.author)]
     return serialize_posts(db, me, posts)
-
-
-@router.get("/me/follow-requests", response_model=list[UserListItem])
-def follow_requests(db: DB, me: CurrentUser):
-    users = db.scalars(
-        select(User).join(Follow, Follow.follower_id == User.id)
-        .where(Follow.following_id == me.id, Follow.status == "pending")
-        .order_by(Follow.created_at.desc())
-    ).all()
-    return user_list_items(db, me, list(users))
 
 
 @router.post("/me/follow-requests/{username}/accept", status_code=status.HTTP_204_NO_CONTENT)

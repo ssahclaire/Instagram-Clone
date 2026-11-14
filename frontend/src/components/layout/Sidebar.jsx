@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { Compass, Heart, Home, LogOut, Menu, Search, Settings, SquarePlus, Bookmark, Camera, LogIn } from 'lucide-react'
+import { Compass, Heart, Home, LogOut, Menu, Search, Send, Settings, SquarePlus, Bookmark, Camera, LogIn } from 'lucide-react'
 import useRequireAuth from '../../utils/useRequireAuth'
 import { useAuth } from '../../context/AuthContext'
 import { useUI } from '../../context/UIContext'
@@ -36,7 +36,7 @@ function Item({ icon: Icon, label, active, onClick, to, collapsed, badge, childr
 }
 
 /** Desktop (>=1024: 244px with labels) / tablet (768-1023: 72px icons) left navigation. */
-export default function Sidebar({ panel, setPanel, unread }) {
+export default function Sidebar({ panel, setPanel, unread, directUnread }) {
   const { user, logout } = useAuth()
   const { openCreate } = useUI()
   const { pathname } = useLocation()
@@ -44,7 +44,8 @@ export default function Sidebar({ panel, setPanel, unread }) {
   const [moreOpen, setMoreOpen] = useState(false)
   const moreRef = useRef()
   const ensureAuth = useRequireAuth()
-  const collapsed = !!panel
+  // Messages uses the full width for the inbox, so the nav shrinks to icons there (like Instagram).
+  const collapsed = !!panel || pathname.startsWith('/direct')
 
   useEffect(() => {
     if (!moreOpen) return
@@ -71,6 +72,9 @@ export default function Sidebar({ panel, setPanel, unread }) {
         <Item to="/" icon={Home} label="홈" active={pathname === '/' && !panel} onClick={go} collapsed={collapsed} />
         <Item icon={Search} label="검색" active={panel === 'search'} onClick={() => toggle('search')} collapsed={collapsed} />
         <Item to="/explore" icon={Compass} label="탐색 탭" active={pathname.startsWith('/explore') && !panel} onClick={go} collapsed={collapsed} />
+        {user && (
+          <Item to="/direct" icon={Send} label="메시지" active={pathname.startsWith('/direct') && !panel} onClick={go} collapsed={collapsed} badge={directUnread} />
+        )}
         {user && (
           <Item icon={Heart} label="알림" active={panel === 'notifications'} onClick={() => toggle('notifications')} collapsed={collapsed} badge={unread} />
         )}
@@ -118,7 +122,7 @@ export default function Sidebar({ panel, setPanel, unread }) {
 }
 
 /** Mobile (<768px) top header + bottom tab bar. */
-export function MobileNav({ unread }) {
+export function MobileNav({ unread, directUnread }) {
   const { user } = useAuth()
   const { openCreate } = useUI()
   const { pathname } = useLocation()
@@ -136,10 +140,20 @@ export function MobileNav({ unread }) {
             Instagram
           </Link>
           {user ? (
-            <Link to="/notifications" className="relative" aria-label="알림">
-              <Heart size={24} />
-              {unread > 0 && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-ig-red" />}
-            </Link>
+            <div className="flex items-center gap-5">
+              <Link to="/notifications" className="relative" aria-label="알림">
+                <Heart size={24} />
+                {unread > 0 && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-ig-red" />}
+              </Link>
+              <Link to="/direct" className="relative" aria-label="메시지">
+                <Send size={24} />
+                {directUnread > 0 && (
+                  <span className="absolute -right-2 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-ig-red px-1 text-[11px] font-bold text-white">
+                    {directUnread > 99 ? '99+' : directUnread}
+                  </span>
+                )}
+              </Link>
+            </div>
           ) : (
             <div className="flex items-center gap-2">
               <button type="button" onClick={ensureAuth} className="btn-primary px-3 py-1.5">

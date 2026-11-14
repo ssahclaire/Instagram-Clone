@@ -78,7 +78,7 @@ function EditPostModal({ post, onClose }) {
     setSaving(true)
     try {
       const updated = await postApi.update(post.id, { caption, location })
-      emitPost(post.id, { caption: updated.caption, location: updated.location, updated_at: updated.updated_at })
+      emitPost(post.id, { caption: updated.caption, location: updated.location })
       toast('게시물이 수정되었습니다.')
       onClose()
     } catch (e) {
