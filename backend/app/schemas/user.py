@@ -2,7 +2,6 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from app.schemas.common import UTCDateTime
 
 USERNAME_PATTERN = r"^[a-z0-9._]{1,30}$"
 
@@ -18,10 +17,9 @@ class UserPublic(BaseModel):
 
 
 class UserMe(UserPublic):
-    email: EmailStr
+    """The logged-in user: what the settings page edits."""
     bio: str
     website: str
-    created_at: UTCDateTime
 
 
 class UserListItem(UserPublic):

@@ -24,8 +24,6 @@ class StartConversationIn(BaseModel):
 
 class MessageOut(BaseModel):
     id: int
-    conversation_id: int
-    sender_id: int
     content: str
     created_at: UTCDateTime
     is_mine: bool
@@ -38,4 +36,3 @@ class ConversationOut(BaseModel):
     unread_count: int
     # Highest of my message ids the other person has read (for the "읽음" marker).
     other_last_read_id: int
-    last_message_at: UTCDateTime | None

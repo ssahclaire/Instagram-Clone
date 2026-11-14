@@ -11,11 +11,12 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
 @router.get("", response_model=list[NotificationOut])
-def list_notifications(db: DB, me: CurrentUser, limit: int = 50):
+def list_notifications(db: DB, me: CurrentUser):
+    """Latest 50 notifications."""
     items = db.scalars(
         select(Notification).options(selectinload(Notification.actor))
         .where(Notification.user_id == me.id)
-        .order_by(Notification.created_at.desc(), Notification.id.desc()).limit(min(limit, 100))
+        .order_by(Notification.created_at.desc(), Notification.id.desc()).limit(50)
     ).all()
     actors = {a.id: a for a in user_list_items(db, me, list({n.actor.id: n.actor for n in items}.values()))}
     post_ids = {n.post_id for n in items if n.post_id}

@@ -31,7 +31,7 @@ def story_feed(db: DB, me: OptionalUser):
     groups: dict[int, StoryGroup] = {}
     for s in stories:
         g = groups.setdefault(s.user_id, StoryGroup(user=UserPublic.model_validate(s.author), stories=[]))
-        g.stories.append(StoryOut(id=s.id, image_url=s.image_url, created_at=s.created_at, expires_at=s.expires_at))
+        g.stories.append(StoryOut(id=s.id, image_url=s.image_url, created_at=s.created_at))
     my_id = me.id if me else None
     ordered = sorted(groups.values(), key=lambda g: (g.user.id != my_id, -g.stories[-1].created_at.timestamp()))
     return ordered
@@ -45,7 +45,7 @@ async def create_story(db: DB, me: CurrentUser, file: UploadFile = File(...)):
                   expires_at=now + timedelta(hours=settings.STORY_TTL_HOURS))
     db.add(story)
     db.commit()
-    return StoryOut(id=story.id, image_url=story.image_url, created_at=story.created_at, expires_at=story.expires_at)
+    return StoryOut(id=story.id, image_url=story.image_url, created_at=story.created_at)
 
 
 @router.delete("/{story_id}", status_code=status.HTTP_204_NO_CONTENT)
